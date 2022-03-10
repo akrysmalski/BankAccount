@@ -1,0 +1,85 @@
+version: '3.3'
+
+services:
+
+  django:
+    build:
+      context: ./django
+      dockerfile: Dockerfile
+      args:
+        UID: ${UID}
+        GID: ${GID}
+    hostname: django
+    container_name: bank_account_django
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD}
+      DJANGO_SECRET: ${DJANGO_SECRET}
+    volumes:
+      - ./django/BankAccount:/var/lib/django/BankAccount
+      - bank_account_static:/var/lib/django/static
+      - bank_account_media:/var/lib/django/media
+    networks:
+      bank_account:
+        ipv4_address: 10.5.0.5
+
+  postgresql:
+    build:
+      context: ./postgresql
+      dockerfile: Dockerfile
+      args:
+        UID: ${UID}
+        GID: ${GID}
+    hostname: postgresql
+    container_name: bank_account_postgresql
+    volumes:
+      - bank_account_postgresql:/var/lib/pgsql/data
+    links:
+      - django
+    depends_on:
+      - django
+    networks:
+      bank_account:
+        ipv4_address: 10.5.0.6
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+      args:
+        UID: ${UID}
+        GID: ${GID}
+    hostname: nginx
+    container_name: bank_account_nginx
+    volumes:
+      - bank_account_static:/var/lib/nginx/static
+      - bank_account_media:/var/lib/nginx/media
+    ports:
+      - "80:80"
+      - "443:443"
+    links:
+      - django
+    depends_on:
+      - django
+    networks:
+      bank_account:
+        ipv4_address: 10.5.0.7
+
+volumes:
+  
+  bank_account_postgresql:
+    external: true
+
+  bank_account_static:
+    external: true
+
+  bank_account_media:
+    external: true
+
+networks:
+
+  bank_account:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.5.0.0/16
+          gateway: 10.5.0.1
